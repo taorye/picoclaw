@@ -15,22 +15,7 @@ import (
 
 func (s *appState) modelMenu() tview.Primitive {
 	items := make([]MenuItem, 0, 2+len(s.config.ModelList))
-	items = append(items,
-		MenuItem{Label: "Back", Description: "Return to main menu", Action: func() { s.pop() }},
-		MenuItem{
-			Label:       "Add model",
-			Description: "Append a new model entry",
-			Action: func() {
-				s.addModel(
-					picoclawconfig.ModelConfig{ModelName: "new-model", Model: "openai/gpt-5.2"},
-				)
-				s.push(
-					fmt.Sprintf("model-%d", len(s.config.ModelList)-1),
-					s.modelForm(len(s.config.ModelList)-1),
-				)
-			},
-		},
-	)
+	items = append(items, MenuItem{Label: "Back", Description: "Return to main menu", Action: func() { s.pop() }})
 	currentModel := strings.TrimSpace(s.config.Agents.Defaults.Model)
 	for i := range s.config.ModelList {
 		index := i
@@ -57,6 +42,23 @@ func (s *appState) modelMenu() tview.Primitive {
 			},
 		})
 	}
+	// Add model entry appended at the end so the models map to rows 1..N
+	items = append(items,
+		MenuItem{
+			Label:       "Add model",
+			Description: "Append a new model entry",
+			Action: func() {
+				newName := s.nextAvailableModelName("new-model")
+				s.addModel(
+					picoclawconfig.ModelConfig{ModelName: newName, Model: "openai/gpt-5.2"},
+				)
+				s.push(
+					fmt.Sprintf("model-%d", len(s.config.ModelList)-1),
+					s.modelForm(len(s.config.ModelList)-1),
+				)
+			},
+		},
+	)
 
 	menu := NewMenu("Models", items)
 	menu.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
@@ -95,12 +97,19 @@ func (s *appState) modelForm(index int) tview.Primitive {
 	model := &s.config.ModelList[index]
 	form := tview.NewForm()
 	form.SetBorder(true).SetTitle(fmt.Sprintf("Model: %s", model.ModelName))
-	form.SetButtonBackgroundColor(tcell.NewRGBColor(80, 250, 123))
-	form.SetButtonTextColor(tcell.NewRGBColor(12, 13, 22))
 
 	addInput(form, "Model Name", model.ModelName, func(value string) {
+		if value == "" {
+			s.showMessage("Invalid model name", "Model Name cannot be empty")
+			return
+		}
+		if s.modelNameExists(value, index) {
+			s.showMessage("Duplicate model name", fmt.Sprintf("Model Name '%s' already exists", value))
+			return
+		}
 		model.ModelName = value
 		s.dirty = true
+		form.SetTitle(fmt.Sprintf("Model: %s", model.ModelName))
 		refreshMainMenuIfPresent(s)
 		if menu, ok := s.menus["model"]; ok {
 			refreshModelMenuFromState(menu, s)
@@ -235,22 +244,7 @@ func refreshModelMenu(menu *Menu, currentModel string, models []picoclawconfig.M
 
 func refreshModelMenuFromState(menu *Menu, s *appState) {
 	items := make([]MenuItem, 0, 2+len(s.config.ModelList))
-	items = append(items,
-		MenuItem{Label: "Back", Description: "Return to main menu", Action: func() { s.pop() }},
-		MenuItem{
-			Label:       "Add model",
-			Description: "Append a new model entry",
-			Action: func() {
-				s.addModel(
-					picoclawconfig.ModelConfig{ModelName: "new-model", Model: "openai/gpt-5.2"},
-				)
-				s.push(
-					fmt.Sprintf("model-%d", len(s.config.ModelList)-1),
-					s.modelForm(len(s.config.ModelList)-1),
-				)
-			},
-		},
-	)
+	items = append(items, MenuItem{Label: "Back", Description: "Return to main menu", Action: func() { s.pop() }})
 	currentModel := strings.TrimSpace(s.config.Agents.Defaults.Model)
 	for i := range s.config.ModelList {
 		index := i
@@ -277,6 +271,22 @@ func refreshModelMenuFromState(menu *Menu, s *appState) {
 			},
 		})
 	}
+	items = append(items,
+		MenuItem{
+			Label:       "Add model",
+			Description: "Append a new model entry",
+			Action: func() {
+				newName := s.nextAvailableModelName("new-model")
+				s.addModel(
+					picoclawconfig.ModelConfig{ModelName: newName, Model: "openai/gpt-5.2"},
+				)
+				s.push(
+					fmt.Sprintf("model-%d", len(s.config.ModelList)-1),
+					s.modelForm(len(s.config.ModelList)-1),
+				)
+			},
+		},
+	)
 	menu.applyItems(items)
 }
 
@@ -285,6 +295,38 @@ func isModelValid(model picoclawconfig.ModelConfig) bool {
 		strings.TrimSpace(model.AuthMethod) == "oauth"
 	hasModel := strings.TrimSpace(model.Model) != ""
 	return hasKey && hasModel
+}
+
+func (s *appState) modelNameExists(name string, excludeIndex int) bool {
+	target := strings.TrimSpace(name)
+	if target == "" {
+		return false
+	}
+	for i := range s.config.ModelList {
+		if i == excludeIndex {
+			continue
+		}
+		if strings.TrimSpace(s.config.ModelList[i].ModelName) == target {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *appState) nextAvailableModelName(base string) string {
+	name := strings.TrimSpace(base)
+	if name == "" {
+		name = "new-model"
+	}
+	if !s.modelNameExists(name, -1) {
+		return name
+	}
+	for i := 2; ; i++ {
+		candidate := fmt.Sprintf("%s-%d", name, i)
+		if !s.modelNameExists(candidate, -1) {
+			return candidate
+		}
+	}
 }
 
 func (s *appState) testModel(model *picoclawconfig.ModelConfig) {
