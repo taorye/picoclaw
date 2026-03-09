@@ -353,13 +353,6 @@ func rootChannelLabel(valid bool) string {
 	return "Channel"
 }
 
-func rootChannelDescription(valid bool) string {
-	if !valid {
-		return "no channel enabled"
-	}
-	return "enabled"
-}
-
 func (s *appState) startTalk() {
 	if !s.isActiveModelValid() {
 		s.showMessage("Model required", "Select a valid model before starting talk")
