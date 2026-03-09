@@ -179,7 +179,7 @@ func refreshMainMenu(menu *Menu, s *appState) {
 	items := []MenuItem{
 		{
 			Label:       rootModelLabel(selectedModel),
-			Description: rootModelDescription(selectedModel),
+			Description: rootModelDescription(),
 			Action: func() {
 				s.push("model", s.modelMenu())
 			},
@@ -342,7 +342,7 @@ func rootModelLabel(selected string) string {
 	return "Model (" + selected + ")"
 }
 
-func rootModelDescription(selected string) string {
+func rootModelDescription() string {
 	return "Using SPACE to choose your model"
 }
 

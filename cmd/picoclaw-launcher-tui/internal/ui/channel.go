@@ -100,10 +100,6 @@ func (s *appState) channelMenu() tview.Primitive {
 			s.pop()
 			return nil
 		}
-		if event.Rune() == 'q' {
-			s.pop()
-			return nil
-		}
 		return event
 	})
 	return menu
