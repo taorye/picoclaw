@@ -14,8 +14,7 @@ import (
 )
 
 func (s *appState) modelMenu() tview.Primitive {
-	items := make([]MenuItem, 0, 2+len(s.config.ModelList))
-	items = append(items, MenuItem{Label: "Back", Description: "Return to main menu", Action: func() { s.pop() }})
+	items := make([]MenuItem, 0, 1+len(s.config.ModelList))
 	currentModel := strings.TrimSpace(s.config.Agents.Defaults.Model)
 	for i := range s.config.ModelList {
 		index := i
@@ -66,14 +65,11 @@ func (s *appState) modelMenu() tview.Primitive {
 			s.pop()
 			return nil
 		}
-		if event.Rune() == 'q' {
-			s.pop()
-			return nil
-		}
+
 		if event.Rune() == ' ' {
 			row, _ := menu.GetSelection()
-			if row > 0 && row <= len(s.config.ModelList) {
-				model := s.config.ModelList[row-1]
+			if row >= 0 && row < len(s.config.ModelList) {
+				model := s.config.ModelList[row]
 				if !isModelValid(model) {
 					s.showMessage(
 						"Invalid model",
@@ -167,7 +163,21 @@ func (s *appState) modelForm(index int) tview.Primitive {
 	})
 
 	form.AddButton("Delete", func() {
-		s.deleteModel(index)
+		pageName := "confirm-delete-model"
+		if s.pages.HasPage(pageName) {
+			return
+		}
+		modal := tview.NewModal().
+			SetText("Are you sure you want to delete this model?").
+			AddButtons([]string{"Cancel", "Delete"}).
+			SetDoneFunc(func(buttonIndex int, buttonLabel string) {
+				s.pages.RemovePage(pageName)
+				if buttonLabel == "Delete" {
+					s.deleteModel(index)
+				}
+			})
+		modal.SetTitle("Confirm Delete").SetBorder(true)
+		s.pages.AddPage(pageName, modal, true, true)
 	})
 	form.AddButton("Test", func() {
 		s.testModel(model)
@@ -224,7 +234,7 @@ func modelStatusColor(valid bool, selected bool) *tcell.Color {
 
 func refreshModelMenu(menu *Menu, currentModel string, models []picoclawconfig.ModelConfig) {
 	for i, model := range models {
-		row := i + 1
+		row := i
 		label := fmt.Sprintf("%s (%s)", model.ModelName, model.Model)
 		isValid := isModelValid(model)
 		if model.ModelName == currentModel && currentModel != "" {
@@ -243,8 +253,7 @@ func refreshModelMenu(menu *Menu, currentModel string, models []picoclawconfig.M
 }
 
 func refreshModelMenuFromState(menu *Menu, s *appState) {
-	items := make([]MenuItem, 0, 2+len(s.config.ModelList))
-	items = append(items, MenuItem{Label: "Back", Description: "Return to main menu", Action: func() { s.pop() }})
+	items := make([]MenuItem, 0, 1+len(s.config.ModelList))
 	currentModel := strings.TrimSpace(s.config.Agents.Defaults.Model)
 	for i := range s.config.ModelList {
 		index := i
@@ -280,10 +289,7 @@ func refreshModelMenuFromState(menu *Menu, s *appState) {
 				s.addModel(
 					picoclawconfig.ModelConfig{ModelName: newName, Model: "openai/gpt-5.2"},
 				)
-				s.push(
-					fmt.Sprintf("model-%d", len(s.config.ModelList)-1),
-					s.modelForm(len(s.config.ModelList)-1),
-				)
+				s.push(fmt.Sprintf("model-%d", len(s.config.ModelList)-1), s.modelForm(len(s.config.ModelList)-1))
 			},
 		},
 	)

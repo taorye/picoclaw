@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -67,6 +68,7 @@ func Run() error {
 	root := tview.NewFlex().SetDirection(tview.FlexRow)
 	root.AddItem(bannerView(), 6, 0, false)
 	root.AddItem(state.pages, 0, 1, true)
+	root.AddItem(footerView(), 1, 0, false)
 
 	if err := state.app.SetRoot(root, true).EnableMouse(false).Run(); err != nil {
 		return err
@@ -102,7 +104,7 @@ func (s *appState) pop() {
 }
 
 func (s *appState) mainMenu() tview.Primitive {
-	menu := NewMenu("Config Menu", nil)
+	menu := NewMenu("Menu", nil)
 	refreshMainMenu(menu, s)
 	menu.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
@@ -110,10 +112,7 @@ func (s *appState) mainMenu() tview.Primitive {
 			s.requestExit()
 			return nil
 		}
-		if event.Rune() == 'q' {
-			s.requestExit()
-			return nil
-		}
+
 		return event
 	})
 
@@ -131,6 +130,32 @@ func (s *appState) refreshMenu(name string, menu *Menu) {
 	}
 }
 
+func (s *appState) countChannels() (enabled int, total int) {
+	c := s.config.Channels
+	entries := []bool{
+		c.Telegram.Enabled,
+		c.Discord.Enabled,
+		c.QQ.Enabled,
+		c.MaixCam.Enabled,
+		c.WhatsApp.Enabled,
+		c.Feishu.Enabled,
+		c.DingTalk.Enabled,
+		c.Slack.Enabled,
+		c.Matrix.Enabled,
+		c.LINE.Enabled,
+		c.OneBot.Enabled,
+		c.WeCom.Enabled,
+		c.WeComApp.Enabled,
+	}
+	total = len(entries)
+	for _, v := range entries {
+		if v {
+			enabled++
+		}
+	}
+	return enabled, total
+}
+
 func refreshMainMenuIfPresent(s *appState) {
 	if menu, ok := s.menus["main"]; ok {
 		refreshMainMenu(menu, s)
@@ -141,6 +166,7 @@ func refreshMainMenu(menu *Menu, s *appState) {
 	selectedModel := s.selectedModelName()
 	modelReady := selectedModel != ""
 	channelReady := s.hasEnabledChannel()
+	enabledCount, totalChannels := s.countChannels()
 	gatewayRunning := s.gatewayCmd != nil || s.isGatewayRunning()
 
 	gatewayLabel := "Start Gateway"
@@ -167,7 +193,7 @@ func refreshMainMenu(menu *Menu, s *appState) {
 		},
 		{
 			Label:       rootChannelLabel(channelReady),
-			Description: rootChannelDescription(channelReady),
+			Description: fmt.Sprintf("%d/%d enabled", enabledCount, totalChannels),
 			Action: func() {
 				s.push("channel", s.channelMenu())
 			},

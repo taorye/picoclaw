@@ -12,7 +12,6 @@ import (
 
 func (s *appState) buildChannelMenuItems() []MenuItem {
 	return []MenuItem{
-		{Label: "Back", Description: "Return to main menu", Action: func() { s.pop() }},
 		channelItem(
 			"Telegram",
 			"Telegram bot settings",
